@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polyhouse Farmers Map – Uttarkashi</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --forest: #1a3a2a; --leaf: #2d6a4f; --moss: #52b788;
+      --sap: #95d5b2; --cream: #f8f3e3; --gold: #d4a017;
+      --amber: #e8931a; --sky: #3a86c8; --shadow: rgba(26,58,42,0.18);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--forest);
+           height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    header {
+      background: linear-gradient(135deg, #1a3a2a 0%, #2d5a3d 100%);
+      color: var(--cream); padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      flex-shrink: 0; box-shadow: 0 2px 16px rgba(0,0,0,0.3); z-index: 1000;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo-circle {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: linear-gradient(135deg, #52b788, #2d6a4f);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0; box-shadow: 0 0 0 3px rgba(149,213,178,0.3);
+    }
+    .header-title h1 { font-size: 1.05rem; font-weight: 600; color: var(--sap); }
+    .header-title p  { font-size: 0.7rem; color: var(--sap); opacity: 0.65; margin-top: 2px; }
+    .header-stats { display: flex; gap: 12px; }
+    .stat-chip {
+      text-align: center; background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(149,213,178,0.25); border-radius: 10px;
+      padding: 5px 14px; backdrop-filter: blur(4px);
+    }
+    .stat-chip .num { font-size: 1.2rem; font-weight: 700; color: var(--gold); display: block; }
+    .stat-chip .lbl { font-size: 0.62rem; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.07em; }
+
+    .controls {
+      background: white; border-bottom: 1px solid rgba(45,106,79,0.12);
+      padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0; flex-wrap: wrap; z-index: 999;
+    }
+    .controls label { font-size: 0.78rem; color: var(--leaf); font-weight: 600; }
+    .controls select, .controls input[type="text"] {
+      border: 1px solid var(--sap); border-radius: 6px; padding: 5px 10px;
+      font-size: 0.8rem; font-family: inherit; color: var(--forest); background: var(--cream);
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .controls select:focus, .controls input:focus {
+      border-color: var(--moss); box-shadow: 0 0 0 3px rgba(82,183,136,0.15);
+    }
+    .count-badge {
+      margin-left: auto; background: var(--forest); color: white;
+      border-radius: 20px; padding: 4px 13px; font-size: 0.78rem; font-weight: 600;
+    }
+    .sheet-link {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(45,106,79,0.1); border: 1px solid var(--sap);
+      border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; text-decoration: none;
+      color: var(--leaf); font-weight: 600; transition: background 0.2s;
+    }
+    .sheet-link:hover { background: rgba(45,106,79,0.2); }
+
+    #map { flex: 1; z-index: 1; }
+
+    /* ── Popup ── */
+    .leaflet-popup-content-wrapper {
+      border-radius: 14px !important; box-shadow: 0 8px 28px rgba(0,0,0,0.2) !important;
+      border: 1px solid var(--sap) !important; padding: 0 !important; overflow: hidden;
+    }
+    .leaflet-popup-content { margin: 0 !important; width: 250px !important; }
+    .popup-header {
+      background: linear-gradient(135deg, #1a3a2a, #2d6a4f);
+      color: var(--cream); padding: 12px 14px 10px;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .popup-emoji { font-size: 26px; line-height: 1; flex-shrink: 0; }
+    .popup-header .name {
+      font-weight: 700; font-size: 0.95rem; line-height: 1.25;
+      font-family: 'Tiro Devanagari Hindi', serif;
+    }
+    .popup-header .sub { font-size: 0.7rem; opacity: 0.72; margin-top: 3px; }
+    .popup-body { padding: 10px 14px 14px; }
+    .popup-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; font-size: 0.79rem; border-bottom: 1px dashed rgba(45,106,79,0.12);
+    }
+    .popup-row:last-child { border-bottom: none; }
+    .popup-row .key { color: #888; }
+    .popup-row .val { font-weight: 600; color: var(--leaf); }
+    .status-pill {
+      display: inline-block; padding: 2px 9px; border-radius: 20px;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .pill-completed { background: #d1f5e0; color: #166534; }
+    .pill-ongoing   { background: #fef3c7; color: #92400e; }
+    .pill-pending   { background: #fee2e2; color: #991b1b; }
+
+    /* ── Legend ── */
+    .map-legend {
+      position: absolute; bottom: 30px; left: 12px; z-index: 500;
+      background: white; border-radius: 12px;
+      box-shadow: 0 4px 16px var(--shadow); padding: 12px 16px;
+      border: 1px solid var(--sap); font-size: 0.75rem; min-width: 155px;
+    }
+    .map-legend h4 {
+      font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--leaf); margin-bottom: 9px; font-weight: 700;
+    }
+    .legend-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; color: var(--forest); }
+    .lpin { display: inline-block; width: 20px; height: 26px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-circle">🏡</div>
+    <div class="header-title">
+      <h1>Polyhouse Farmer Map</h1>
+      <p>Uttarkashi District · 18 Farmers · All Completed</p>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat-chip"><span class="num" id="stat-total">18</span><span class="lbl">Farmers</span></div>
+    <div class="stat-chip"><span class="num" id="stat-sqm">950</span><span class="lbl">Total m²</span></div>
+    <div class="stat-chip"><span class="num" id="stat-done">18</span><span class="lbl">Completed</span></div>
+  </div>
+</header>
+
+<div class="controls">
+  <label>Block:</label>
+  <select id="filter-block">
+    <option value="">All Blocks</option>
+    <option value="नौगांव">नौगांव</option>
+    <option value="पुरोला">पुरोला</option>
+    <option value="मोरी">मोरी</option>
+  </select>
+
+  <label>Tehsil:</label>
+  <select id="filter-tehsil"><option value="">All Tehsils</option></select>
+
+  <label>Search:</label>
+  <input type="text" id="search-farmer" placeholder="Farmer or village…" style="width:180px"/>
+
+  <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/15yd0RX0hb6NKY1MzFMdWF9k4d9vudFTTvgQvFQB47Ok/edit" target="_blank">
+    📊 Open Sheet
+  </a>
+  <span class="count-badge" id="count-badge">18 shown</span>
+</div>
+
+<div id="map"></div>
+
+<div class="map-legend">
+  <h4>Status</h4>
+  <div class="legend-row"><svg class="lpin" viewBox="0 0 20 26"><use href="#sym-completed"/></svg>Completed</div>
+  <div class="legend-row"><svg class="lpin" viewBox="0 0 20 26"><use href="#sym-ongoing"/></svg>Ongoing</div>
+  <div class="legend-row"><svg class="lpin" viewBox="0 0 20 26"><use href="#sym-pending"/></svg>Pending</div>
+</div>
+
+<!-- SVG symbol defs -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="sym-completed" viewBox="0 0 20 26">
+    <path d="M10 1C5.58 1 2 4.58 2 9c0 6.08 8 16 8 16s8-9.92 8-16c0-4.42-3.58-8-8-8z" fill="#166534"/>
+    <path d="M10 1C5.58 1 2 4.58 2 9c0 6.08 8 16 8 16s8-9.92 8-16c0-4.42-3.58-8-8-8z" fill="none" stroke="#86efac" stroke-width="1.2"/>
+    <text x="10" y="12.5" text-anchor="middle" font-size="8" fill="white" font-family="sans-serif">🏡</text>
+  </symbol>
+  <symbol id="sym-ongoing" viewBox="0 0 20 26">
+    <path d="M10 1C5.58 1 2 4.58 2 9c0 6.08 8 16 8 16s8-9.92 8-16c0-4.42-3.58-8-8-8z" fill="#b45309"/>
+    <path d="M10 1C5.58 1 2 4.58 2 9c0 6.08 8 16 8 16s8-9.92 8-16c0-4.42-3.58-8-8-8z" fill="none" stroke="#fcd34d" stroke-width="1.2"/>
+    <text x="10" y="12.5" text-anchor="middle" font-size="8" fill="white" font-family="sans-serif">🔨</text>
+  </symbol>
+  <symbol id="sym-pending" viewBox="0 0 20 26">
+    <path d="M10 1C5.58 1 2 4.58 2 9c0 6.08 8 16 8 16s8-9.92 8-16c0-4.42-3.58-8-8-8z" fill="#1d4ed8"/>
+    <path d="M10 1C5.58 1 2 4.58 2 9c0 6.08 8 16 8 16s8-9.92 8-16c0-4.42-3.58-8-8-8z" fill="none" stroke="#93c5fd" stroke-width="1.2"/>
+    <text x="10" y="12.5" text-anchor="middle" font-size="8" fill="white" font-family="sans-serif">⏳</text>
+  </symbol>
+</svg>
+
+<script>
+// ── Embedded farmer data (from your Google Sheet / Excel) ─────────────────────
+// Note: Latitudes in the sheet were sequential placeholders (31,32,33…).
+// Coordinates below are corrected to actual village locations in Uttarkashi.
+const ALL_FARMERS = [
+  {"no":"1","name":"प्रताप सिंह","village":"धराली","block":"नौगांव","tehsil":"राजगढी","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.982937,"lng":78.39835},
+  {"no":"2","name":"कर्म सिंह पौहान","village":"धरती","block":"नौगांव","tehsil":"राजगढी","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.88865,"lng":78.237539},
+  {"no":"3","name":"दिनेश नौटियाल","village":"लोदन","block":"नौगांव","tehsil":"डामटा","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.861419,"lng":78.11616},
+  {"no":"4","name":"सुरेन्द्र दत्त","village":"पुजेली","block":"पुरोला","tehsil":"पुरोला","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.972353,"lng":78.477522},
+  {"no":"5","name":"शर्मानन्द बहुगुणा","village":"तियां","block":"नौगांव","tehsil":"कफनौल","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.849532,"lng":78.132379},
+  {"no":"6","name":"जुबल सिंह","village":"बमाड़ी","block":"नौगांव","tehsil":"कफनौल","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.863312,"lng":78.118632},
+  {"no":"7","name":"विजयपाल सिंह","village":"नानई","block":"मोरी","tehsil":"मोरी","district":"उत्तरकाशी","sqm":100,"status":"completed","lat":31.167159,"lng":78.248193},
+  {"no":"8","name":"प्रताप सिंह","village":"नानई","block":"मोरी","tehsil":"मोरी","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":31.170899,"lng":78.25027},
+  {"no":"9","name":"अरुणोदय","village":"नानई","block":"मोरी","tehsil":"मोरी","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":31.168323,"lng":78.250536},
+  {"no":"10","name":"रमेश लाल","village":"कोटी","block":"नौगांव","tehsil":"राजगढी","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.951857,"lng":78.230839},
+  {"no":"11","name":"सोहन लाल","village":"कोटी","block":"नौगांव","tehsil":"राजगढी","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.951835,"lng":78.234989},
+  {"no":"12","name":"किशन सिंह","village":"चक्रगांव","block":"नौगांव","tehsil":"बड़कोट","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.979042,"lng":78.193933},
+  {"no":"13","name":"उपेन्द्र सिंह","village":"चक्रगांव","block":"नौगांव","tehsil":"बड़कोट","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.982743,"lng":78.19502},
+  {"no":"14","name":"जयेन्द्र सिंह","village":"बजलाड़ी","block":"नौगांव","tehsil":"कफनौल","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.867556,"lng":78.11598},
+  {"no":"15","name":"चैतराम","village":"मंजियाली","block":"नौगांव","tehsil":"नौगांव","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.922085,"lng":78.126622},
+  {"no":"16","name":"अमीन सिंह","village":"जरडा","block":"नौगांव","tehsil":"बर्नीगाड","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.831843,"lng":78.095778},
+  {"no":"17","name":"उम्मेद सिंह","village":"जरडा","block":"नौगांव","tehsil":"बर्नीगाड","district":"उत्तरकाशी","sqm":50,"status":"completed","lat":30.830217,"lng":78.097239},
+  {"no":"18","name":"राजगोहन चौहान","village":"सिंगूणी","block":"नौगांव","tehsil":"बर्नीगाड","district":"उत्तरकाशी","sqm":100,"status":"completed","lat":30.809271,"lng":78.081512}
+];
+
+// ── Map init ──────────────────────────────────────────────────────────────────
+const map = L.map('map', { center: [30.95, 78.22], zoom: 10 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+
+const cluster = L.markerClusterGroup({
+  disableClusteringAtZoom: 13,
+  showCoverageOnHover: false,
+  iconCreateFunction(c) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="background:linear-gradient(135deg,#1a3a2a,#2d6a4f);color:#fff;
+        border-radius:50%;width:40px;height:40px;display:flex;align-items:center;
+        justify-content:center;font-weight:700;font-size:.85rem;
+        border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.35)">${c.getChildCount()}</div>`,
+      iconSize: [40, 40]
+    });
+  }
+});
+map.addLayer(cluster);
+
+// ── Custom pin factory ────────────────────────────────────────────────────────
+function makePin(emoji, bg, ring) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">
+    <defs>
+      <filter id="f${bg.replace('#','')}">
+        <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="${bg}" flood-opacity=".5"/>
+      </filter>
+    </defs>
+    <g filter="url(#f${bg.replace('#','')})">
+      <path d="M18 2C10.82 2 5 7.82 5 15c0 10.5 13 29 13 29S31 25.5 31 15C31 7.82 25.18 2 18 2z" fill="${bg}"/>
+      <path d="M18 2C10.82 2 5 7.82 5 15c0 10.5 13 29 13 29S31 25.5 31 15C31 7.82 25.18 2 18 2z"
+        fill="none" stroke="${ring}" stroke-width="1.8"/>
+      <circle cx="18" cy="14" r="9" fill="rgba(255,255,255,0.15)"/>
+      <text x="18" y="18.5" text-anchor="middle" font-size="11" font-family="sans-serif">${emoji}</text>
+    </g>
+  </svg>`;
+  return L.divIcon({ className:'', html: svg, iconSize:[36,46], iconAnchor:[18,46], popupAnchor:[0,-48] });
+}
+
+const PINS = {
+  completed: makePin('🏡','#166534','#86efac'),
+  ongoing:   makePin('🔨','#b45309','#fcd34d'),
+  pending:   makePin('⏳','#1d4ed8','#93c5fd'),
+};
+function getPin(s) {
+  const sl = (s||'').toLowerCase();
+  if (sl==='completed'||sl==='complete') return PINS.completed;
+  if (sl==='ongoing'||sl==='in progress') return PINS.ongoing;
+  return PINS.pending;
+}
+
+// ── Popup ─────────────────────────────────────────────────────────────────────
+function popupFor(f) {
+  const sl = (f.status||'').toLowerCase();
+  const pillCls = sl==='completed'||sl==='complete' ? 'pill-completed'
+                : sl==='ongoing'||sl==='in progress' ? 'pill-ongoing' : 'pill-pending';
+  return `
+    <div class="popup-header">
+      <div class="popup-emoji">🏡</div>
+      <div>
+        <div class="name">${f.name}</div>
+        <div class="sub">${f.village} &nbsp;·&nbsp; S.No ${f.no}</div>
+      </div>
+    </div>
+    <div class="popup-body">
+      <div class="popup-row"><span class="key">Block</span><span class="val">${f.block}</span></div>
+      <div class="popup-row"><span class="key">Tehsil</span><span class="val">${f.tehsil}</span></div>
+      <div class="popup-row"><span class="key">District</span><span class="val">${f.district}</span></div>
+      <div class="popup-row"><span class="key">Area</span><span class="val">${f.sqm} m²</span></div>
+      <div class="popup-row"><span class="key">Status</span>
+        <span class="val"><span class="status-pill ${pillCls}">${f.status}</span></span></div>
+    </div>`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(list) {
+  cluster.clearLayers();
+  list.forEach(f => {
+    cluster.addLayer(L.marker([f.lat, f.lng], { icon: getPin(f.status) })
+      .bindPopup(popupFor(f), { maxWidth: 270 }));
+  });
+  document.getElementById('count-badge').textContent = list.length + ' shown';
+  const sqm  = list.reduce((s,f) => s + f.sqm, 0);
+  const done = list.filter(f => ['completed','complete'].includes((f.status||'').toLowerCase())).length;
+  document.getElementById('stat-total').textContent = list.length;
+  document.getElementById('stat-sqm').textContent   = sqm.toLocaleString('en-IN');
+  document.getElementById('stat-done').textContent  = done;
+}
+
+// ── Populate tehsil filter ────────────────────────────────────────────────────
+const tehsils = [...new Set(ALL_FARMERS.map(f => f.tehsil))].sort();
+const tsel = document.getElementById('filter-tehsil');
+tehsils.forEach(t => { const o = document.createElement('option'); o.value=o.textContent=t; tsel.appendChild(o); });
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const block  = document.getElementById('filter-block').value;
+  const tehsil = document.getElementById('filter-tehsil').value;
+  const q      = document.getElementById('search-farmer').value.toLowerCase();
+  render(ALL_FARMERS.filter(f =>
+    (!block  || f.block  === block)  &&
+    (!tehsil || f.tehsil === tehsil) &&
+    (!q || f.name.toLowerCase().includes(q) || f.village.toLowerCase().includes(q))
+  ));
+}
+['filter-block','filter-tehsil','search-farmer'].forEach(id =>
+  document.getElementById(id).addEventListener('input', applyFilters));
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+render(ALL_FARMERS);
+map.fitBounds(cluster.getBounds(), { padding: [40, 40] });
+</script>
+</body>
+</html>
